@@ -1,0 +1,89 @@
+{
+  "name": "@mridang/serverless-shortsha-plugin",
+  "version": "0.2.0",
+  "scripts": {
+    "prepack": "tsc",
+    "build": "tsc",
+    "test": "jest --verbose --config=jest.config.js --runInBand",
+    "test:watch": "npm run test -- --watch",
+    "test:debug": "jest --verbose --config=jest.config.js --runInBand --detectOpenHandles",
+    "format": "prettier --write \"**/*.{js,ts,jsx,tsx,json,css,md,html}\"",
+    "format:check": "prettier --check \"**/*.{js,ts,jsx,tsx,json,css,md,html}\"",
+    "lint": "npx eslint --ext .jsx,.js,.tsx,.ts .",
+    "lint:fix": "npx eslint --ext .jsx,.js,.tsx,.ts . --fix"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "keywords": [
+    "serverless",
+    "serverless framework",
+    "serverless plugin"
+  ],
+  "author": {
+    "name": "Mridang Agarwalla",
+    "email": "mridang.agarwalla@gmail.com",
+    "url": "https://github.com/mridang"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "ISC",
+  "description": "A plugin for the serverless framework to inspect the setup via Checkov",
+  "private": false,
+  "peerDependencies": {
+    "serverless": "^3.38.0"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mridang/serverless-shortsha-plugin.git"
+  },
+  "homepage": "https://github.com/mridang/serverless-shortsha-plugin",
+  "bugs": "https://github.com/mridang/serverless-shortsha-plugin/issues",
+  "overrides": {
+    "eslint-config-standard-with-typescript": {
+      "@typescript-eslint/eslint-plugin": "^7.0.0"
+    },
+    "ip": "2.0.1"
+  },
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^10.0.5",
+    "@semantic-release/npm": "^12.0.1",
+    "@semantic-release/release-notes-generator": "^14.0.0",
+    "@serverless/test": "^11.1.1",
+    "@tsconfig/node20": "latest",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.3.2",
+    "@types/serverless": "^3.12.22",
+    "@typescript-eslint/eslint-plugin": "^7.0.2",
+    "@typescript-eslint/parser": "^7.0.2",
+    "@typescript-eslint/typescript-estree": "^7.0.0",
+    "eslint": "^8.0.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-config-standard-with-typescript": "^43.0.1",
+    "eslint-plugin-eslint-comments": "^3.2.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-jest": "^27.6.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "jest": "^29.7.0",
+    "npm": "^10.4.0",
+    "prettier": "^3.1.1",
+    "semantic-release": "^24.0.0",
+    "serverless": "^3.38.0",
+    "source-map-support": "^0.5.21",
+    "ts-jest": "^29.1.0",
+    "ts-loader": "^9.4.3",
+    "ts-node": "^10.9.1",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.1.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
