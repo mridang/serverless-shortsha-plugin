@@ -8,5 +8,8 @@ plugins:
   - ../../../src
 
 functions:
-  authorize:
+  foo:
+    handler: index.handler
+
+  bar:
     handler: index.handler

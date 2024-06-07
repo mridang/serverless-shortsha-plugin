@@ -1,6 +1,6 @@
 import Serverless from 'serverless';
-import Plugin, {Logging} from 'serverless/classes/Plugin';
-import {execSync} from 'node:child_process';
+import Plugin, { Logging } from 'serverless/classes/Plugin';
+import { execSync } from 'node:child_process';
 
 class ServerlessShortshaPlugin implements Plugin {
   public readonly hooks: Plugin.Hooks = {};
@@ -19,9 +19,7 @@ class ServerlessShortshaPlugin implements Plugin {
 
   getGitCommitSha(): string | null {
     try {
-      return execSync('git rev-parse --short HEAD')
-          .toString()
-          .trim();
+      return execSync('git rev-parse --short HEAD').toString().trim();
     } catch (error) {
       this.logging.log.notice('Not a Git repository or Git command failed');
       return null;
