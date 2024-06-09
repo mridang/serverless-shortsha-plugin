@@ -47,6 +47,7 @@ class ServerlessShortshaPlugin implements Plugin {
         const aliasResource = {
           Type: 'AWS::Lambda::Alias',
           Properties: {
+            DeletionPolicy: 'Retain',
             FunctionName: {
               Ref: functionName,
             },

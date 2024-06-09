@@ -1,10 +1,28 @@
-Installation
+## Installation
 
-Usage
+Install using NPM by using the following command
 
-fix workflows
-remove deploy
-publish on commti to master
+```
+npm install --save-dev serverless-prune-plugin
+```
+
+And then add the plugin to your serverless.yml file:
+
+```
+plugins:
+- serverless-prune-plugin
+```
+
+Alternatively, install with the Serverless plugin command (Serverless Framework 1.22 or higher):
+
+```
+sls plugin install -n serverless-prune-plugin
+```
+
+## Usage
+
+There isn't anything specific to be done once the plugin is installed.
+When you trigger a deployment ``
 
 ```
 sls package                                                                                     ✔  10166  10:56:46 19/04/2024
@@ -140,3 +158,13 @@ Check: CKV_AWS_53: "Ensure S3 bucket has block public ACLs enabled"
 
 ✔ Service packaged (12s)
 ```
+
+## Contributing
+
+If you have suggestions for how this app could be improved, or
+want to report a bug, open an issue - we'd love all and any
+contributions.
+
+## License
+
+Apache License 2.0 © 2024 Mridang Agarwalla
