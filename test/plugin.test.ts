@@ -43,22 +43,19 @@ describe('plugin tests', () => {
       compiledTemplate.Resources as CloudFormationResources,
     ).filter(
       ([, resource]: [string, CloudFormationResource]) =>
-        resource.Type === 'AWS::Lambda::Alias',
+        resource.Type === 'Custom::LambdaAlias',
     );
 
     expect(aliasResources.length).toEqual(2);
 
     aliasResources.forEach(
       ([, aliasResource]: [string, CloudFormationResource]) => {
-        const aliasName = aliasResource.Properties.Name;
-        expect(aliasName).toMatch(/^[0-9a-f]{7}$/); // Match the short SHA format
-        expect(aliasResource.Properties.Description).toBe(
-          `Alias for commit ${aliasName}`,
-        );
-
-        const expectedAliasResource = {
-          Type: 'AWS::Lambda::Alias',
+        expect(aliasResource).toEqual({
+          Type: 'Custom::LambdaAlias',
           Properties: {
+            ServiceToken: {
+              'Fn::GetAtt': ['CustomResourceHandlerLambdaFunction', 'Arn'],
+            },
             FunctionName: { Ref: aliasResource.Properties.FunctionName.Ref },
             FunctionVersion: {
               'Fn::GetAtt': [
@@ -66,22 +63,18 @@ describe('plugin tests', () => {
                 'Version',
               ],
             },
-            Name: aliasName,
-            Description: aliasResource.Properties.Description,
+            AliasName: expect.stringMatching(new RegExp(/version-[0-9a-f]*/)),
           },
-        };
-
-        expect(aliasResource).toEqual(expectedAliasResource);
+        });
       },
     );
-    console.log(logsBuffer);
 
     expect(logsBuffer.join('\n')).toContain(
-      'Alias "7ac677f" added for function "FooLambdaFunction" in the CloudFormation template',
+      'added for function "FooLambdaFunction" in the CloudFormation template',
     );
 
     expect(logsBuffer.join('\n')).toContain(
-      'Alias "7ac677f" added for function "BarLambdaFunction" in the CloudFormation template',
+      'added for function "BarLambdaFunction" in the CloudFormation template',
     );
   });
 });
