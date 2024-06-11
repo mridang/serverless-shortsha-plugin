@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const packageJson = require('./package.json');
+
 module.exports = {
   branches: ['master'],
   plugins: [
@@ -27,5 +30,5 @@ module.exports = {
       },
     ],
   ],
-  repositoryUrl: 'https://github.com/mridang/serverless-shortsha-plugin',
+  repositoryUrl: packageJson.repository.url,
 };

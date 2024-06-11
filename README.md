@@ -1,162 +1,58 @@
+A plugin for the Serverless framework to create a version alias
+for the Lambda function which is named after the current git
+SHA.
+
+This makes it easier to deduce the version that is running.
+
+> [!NOTE]
+> This plugin has only been tested with the AWS provider and will
+> not work if you are deploying to other providers e.g. GCP.
+
 ## Installation
 
 Install using NPM by using the following command
 
-```
-npm install --save-dev serverless-prune-plugin
+```sh
+npm install --save-dev serverless-shortsha-plugin
 ```
 
-And then add the plugin to your serverless.yml file:
+And then add the plugin to your `serverless.yml` file:
 
-```
+```yaml
 plugins:
-- serverless-prune-plugin
+  - serverless-shortsha-plugin
 ```
 
-Alternatively, install with the Serverless plugin command (Serverless Framework 1.22 or higher):
-
-```
-sls plugin install -n serverless-prune-plugin
-```
+A thorough guide on installing plugins can be found at
+https://www.serverless.com/framework/docs-guides-plugins
 
 ## Usage
 
 There isn't anything specific to be done once the plugin is installed.
-When you trigger a deployment ``
+When you trigger a deployment, the plugin will take the short SHA
+of the current directory (assuming that the project is in fact a
+a Git repository).
 
 ```
-sls package                                                                                     ✔  10166  10:56:46 19/04/2024
+$ sls deploy
 
-Packaging aws-node-project for stage dev (us-east-1)
+Deploying test-logcls to stage dev (us-east-1)
+Compiling with Typescript...
+Using local tsconfig.json - tsconfig.json
+Typescript compiled.
+
+Warning: Package patterns at function level are only applicable if package.individually is set to true at service level or function level in serverless.yaml. The framework will ignore the patterns defined at the function level and apply only the service-wide ones.
 Warning: cloudformation scan results:
 
-Passed checks: 3, Failed checks: 6, Skipped checks: 0
+Alias "40d313f" added for function "ProbotLambdaFunction" in the CloudFormation template
 
-Check: CKV_AWS_55: "Ensure S3 bucket has ignore public ACLs enabled"
-        FAILED for resource: AWS::S3::Bucket.ServerlessDeploymentBucket
-        File: /tmp/sls/cloudformation-template-create-stack.json:5-18
-        Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-21
+✔ Service deployed to stack test-logcls-dev (104s)
 
-                5  |     "ServerlessDeploymentBucket": {
-                6  |       "Type": "AWS::S3::Bucket",
-                7  |       "Properties": {
-                8  |         "BucketEncryption": {
-                9  |           "ServerSideEncryptionConfiguration": [
-                10 |             {
-                11 |               "ServerSideEncryptionByDefault": {
-                12 |                 "SSEAlgorithm": "AES256"
-                13 |               }
-                14 |             }
-                15 |           ]
-                16 |         }
-                17 |       }
-                18 |     },
+endpoint: https://sfukfimmof3tinylzdbum77uvdu0xtznt.lambda-url.us-east-1.on.aws/
+functions:
+  probot: test-logcls-dev-probot (22 MB)
 
-Check: CKV_AWS_18: "Ensure the S3 bucket has access logging enabled"
-        FAILED for resource: AWS::S3::Bucket.ServerlessDeploymentBucket
-        File: /tmp/sls/cloudformation-template-create-stack.json:5-18
-        Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging
-
-                5  |     "ServerlessDeploymentBucket": {
-                6  |       "Type": "AWS::S3::Bucket",
-                7  |       "Properties": {
-                8  |         "BucketEncryption": {
-                9  |           "ServerSideEncryptionConfiguration": [
-                10 |             {
-                11 |               "ServerSideEncryptionByDefault": {
-                12 |                 "SSEAlgorithm": "AES256"
-                13 |               }
-                14 |             }
-                15 |           ]
-                16 |         }
-                17 |       }
-                18 |     },
-
-Check: CKV_AWS_21: "Ensure the S3 bucket has versioning enabled"
-        FAILED for resource: AWS::S3::Bucket.ServerlessDeploymentBucket
-        File: /tmp/sls/cloudformation-template-create-stack.json:5-18
-        Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning
-
-                5  |     "ServerlessDeploymentBucket": {
-                6  |       "Type": "AWS::S3::Bucket",
-                7  |       "Properties": {
-                8  |         "BucketEncryption": {
-                9  |           "ServerSideEncryptionConfiguration": [
-                10 |             {
-                11 |               "ServerSideEncryptionByDefault": {
-                12 |                 "SSEAlgorithm": "AES256"
-                13 |               }
-                14 |             }
-                15 |           ]
-                16 |         }
-                17 |       }
-                18 |     },
-
-Check: CKV_AWS_54: "Ensure S3 bucket has block public policy enabled"
-        FAILED for resource: AWS::S3::Bucket.ServerlessDeploymentBucket
-        File: /tmp/sls/cloudformation-template-create-stack.json:5-18
-        Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-20
-
-                5  |     "ServerlessDeploymentBucket": {
-                6  |       "Type": "AWS::S3::Bucket",
-                7  |       "Properties": {
-                8  |         "BucketEncryption": {
-                9  |           "ServerSideEncryptionConfiguration": [
-                10 |             {
-                11 |               "ServerSideEncryptionByDefault": {
-                12 |                 "SSEAlgorithm": "AES256"
-                13 |               }
-                14 |             }
-                15 |           ]
-                16 |         }
-                17 |       }
-                18 |     },
-
-Check: CKV_AWS_56: "Ensure S3 bucket has RestrictPublicBuckets enabled"
-        FAILED for resource: AWS::S3::Bucket.ServerlessDeploymentBucket
-        File: /tmp/sls/cloudformation-template-create-stack.json:5-18
-        Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-22
-
-                5  |     "ServerlessDeploymentBucket": {
-                6  |       "Type": "AWS::S3::Bucket",
-                7  |       "Properties": {
-                8  |         "BucketEncryption": {
-                9  |           "ServerSideEncryptionConfiguration": [
-                10 |             {
-                11 |               "ServerSideEncryptionByDefault": {
-                12 |                 "SSEAlgorithm": "AES256"
-                13 |               }
-                14 |             }
-                15 |           ]
-                16 |         }
-                17 |       }
-                18 |     },
-
-Check: CKV_AWS_53: "Ensure S3 bucket has block public ACLs enabled"
-        FAILED for resource: AWS::S3::Bucket.ServerlessDeploymentBucket
-        File: /tmp/sls/cloudformation-template-create-stack.json:5-18
-        Guide: https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/bc-aws-s3-19
-
-                5  |     "ServerlessDeploymentBucket": {
-                6  |       "Type": "AWS::S3::Bucket",
-                7  |       "Properties": {
-                8  |         "BucketEncryption": {
-                9  |           "ServerSideEncryptionConfiguration": [
-                10 |             {
-                11 |               "ServerSideEncryptionByDefault": {
-                12 |                 "SSEAlgorithm": "AES256"
-                13 |               }
-                14 |             }
-                15 |           ]
-                16 |         }
-                17 |       }
-                18 |     },
-
-
-
-✔  analysis completed successfully.
-
-✔ Service packaged (12s)
+Need a faster logging experience than CloudWatch? Try our Dev Mode in Console: run "serverless dev"
 ```
 
 ## Contributing
