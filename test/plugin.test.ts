@@ -70,11 +70,11 @@ describe('plugin tests', () => {
     );
 
     expect(logsBuffer.join('\n')).toContain(
-      'added for function "FooLambdaFunction" in the CloudFormation template',
+      'added for function "FooLambdaFunction"',
     );
 
     expect(logsBuffer.join('\n')).toContain(
-      'added for function "BarLambdaFunction" in the CloudFormation template',
+      'added for function "BarLambdaFunction"',
     );
   });
 });

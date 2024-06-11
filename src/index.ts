@@ -5,6 +5,7 @@ import { execSync } from 'node:child_process';
 class ServerlessShortshaPlugin implements Plugin {
   public readonly hooks: Plugin.Hooks = {};
   public readonly name: string = 'serverless-shortsha-plugin';
+  private readonly stage: string;
 
   constructor(
     private readonly serverless: Serverless,
@@ -15,6 +16,8 @@ class ServerlessShortshaPlugin implements Plugin {
       'after:aws:package:finalize:mergeCustomProviderResources':
         this.addAliases.bind(this),
     };
+    this.stage =
+      this.serverless.service.provider.stage || this.options.stage || 'dev';
   }
 
   getGitCommitSha(): string | null {
@@ -36,24 +39,24 @@ class ServerlessShortshaPlugin implements Plugin {
       return;
     }
 
-    const stage =
-      this.serverless.service.provider.stage || this.options.stage || 'dev';
     const template =
       this.serverless.service.provider.compiledCloudFormationTemplate;
 
-    template.Resources['CustomResourceHandlerLambdaFunction'] = {
-      Type: 'AWS::Lambda::Function',
-      Properties: {
-        FunctionName: `cfn-shortsha-${stage}-resource`,
-        Description:
-          'A custom resource to manage function aliases for Serverless Framework projects',
-        Runtime: 'nodejs20.x',
-        Architectures: ['arm64'],
-        MemorySize: 128,
-        Handler: 'index.handler',
-        Role: { 'Fn::GetAtt': ['CustomResourceHandlerLambdaRole', 'Arn'] },
-        Code: {
-          ZipFile: `
+    template.Resources = {
+      ...template.Resources,
+      CustomResourceHandlerLambdaFunction: {
+        Type: 'AWS::Lambda::Function',
+        Properties: {
+          FunctionName: `cfn-shortsha-${this.serverless.service.service}-${this.stage}-resource`,
+          Description:
+            'A custom resource to manage function aliases for Serverless Framework projects',
+          Runtime: 'nodejs20.x',
+          Architectures: ['arm64'],
+          MemorySize: 128,
+          Handler: 'index.handler',
+          Role: { 'Fn::GetAtt': ['CustomResourceHandlerLambdaRole', 'Arn'] },
+          Code: {
+            ZipFile: `
               const { LambdaClient, CreateAliasCommand, DeleteAliasCommand, ListAliasesCommand } = require('@aws-sdk/client-lambda');
               const response = require('cfn-response');
 
@@ -92,75 +95,77 @@ class ServerlessShortshaPlugin implements Plugin {
                 }
               };
             `,
+          },
         },
       },
-    };
-
-    template.Resources['CustomResourceHandlerLambdaRole'] = {
-      Type: 'AWS::IAM::Role',
-      Properties: {
-        AssumeRolePolicyDocument: {
-          Version: '2012-10-17',
-          Statement: [
-            {
-              Effect: 'Allow',
-              Principal: {
-                Service: 'lambda.amazonaws.com',
+      CustomResourceHandlerLambdaRole: {
+        Type: 'AWS::IAM::Role',
+        Properties: {
+          AssumeRolePolicyDocument: {
+            Version: '2012-10-17',
+            Statement: [
+              {
+                Effect: 'Allow',
+                Principal: {
+                  Service: 'lambda.amazonaws.com',
+                },
+                Action: 'sts:AssumeRole',
               },
-              Action: 'sts:AssumeRole',
+            ],
+          },
+          Policies: [
+            {
+              PolicyName: 'CustomResourcePolicy',
+              PolicyDocument: {
+                Version: '2012-10-17',
+                Statement: [
+                  {
+                    Effect: 'Allow',
+                    Action: [
+                      'logs:*',
+                      'lambda:CreateAlias',
+                      'lambda:UpdateAlias',
+                      'lambda:DeleteAlias',
+                      'lambda:ListAliases',
+                    ],
+                    Resource: '*',
+                  },
+                ],
+              },
             },
           ],
         },
-        Policies: [
-          {
-            PolicyName: 'CustomResourcePolicy',
-            PolicyDocument: {
-              Version: '2012-10-17',
-              Statement: [
-                {
-                  Effect: 'Allow',
-                  Action: [
-                    'logs:*',
-                    'lambda:CreateAlias',
-                    'lambda:UpdateAlias',
-                    'lambda:DeleteAlias',
-                    'lambda:ListAliases',
-                  ],
-                  Resource: '*',
-                },
-              ],
-            },
-          },
-        ],
       },
-    };
+      ...Object.entries(template.Resources)
+        .filter(([, resource]) => resource.Type === 'AWS::Lambda::Version')
+        .reduce(
+          (acc, [key, resource]) => {
+            const functionName = resource.Properties.FunctionName.Ref;
+            this.logging.log.info(
+              `Alias "${commitSha}" added for function "${functionName}"`,
+            );
 
-    Object.keys(template.Resources).forEach((key) => {
-      const resource = template.Resources[key];
-      if (resource.Type === 'AWS::Lambda::Version') {
-        const functionName = resource.Properties.FunctionName.Ref;
-
-        template.Resources[`${functionName}ShortShaAlias`] = {
-          Type: 'Custom::LambdaAlias',
-          Properties: {
-            ServiceToken: {
-              'Fn::GetAtt': ['CustomResourceHandlerLambdaFunction', 'Arn'],
-            },
-            FunctionName: {
-              Ref: functionName,
-            },
-            FunctionVersion: {
-              'Fn::GetAtt': [key, 'Version'],
-            },
-            AliasName: `version-${commitSha}`,
+            return {
+              ...acc,
+              [`${functionName}ShortShaAlias`]: {
+                Type: 'Custom::LambdaAlias',
+                Properties: {
+                  ServiceToken: {
+                    'Fn::GetAtt': [
+                      'CustomResourceHandlerLambdaFunction',
+                      'Arn',
+                    ],
+                  },
+                  FunctionName: { Ref: functionName },
+                  FunctionVersion: { 'Fn::GetAtt': [key, 'Version'] },
+                  AliasName: `version-${commitSha}`,
+                },
+              },
+            };
           },
-        };
-
-        this.logging.log.notice(
-          `Alias "${commitSha}" added for function "${functionName}" in the CloudFormation template`,
-        );
-      }
-    });
+          {} as { [key: string]: object },
+        ),
+    };
   }
 }
 
