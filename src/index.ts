@@ -69,13 +69,20 @@ class ServerlessShortshaPlugin implements Plugin {
 
                 try {
                   if (event.RequestType === 'Create' || event.RequestType === 'Update') {
-                    const createAliasCommand = new CreateAliasCommand({
-                      FunctionName: functionName,
-                      Name: aliasName,
-                      Description: \`Alias for commit \${aliasName}\`,
-                      FunctionVersion: functionVersion,
-                    });
-                    await lambdaClient.send(createAliasCommand);
+                    const listAliasesCommand = new ListAliasesCommand({ FunctionName: functionName });
+				    const aliases = await lambdaClient.send(listAliasesCommand);
+
+			  	    if (aliases.Aliases.some(alias => alias.Name === aliasName)) {
+					  console.warn(\`Alias \${aliasName} already exists for function \${functionName}\`);
+				    } else {
+					  const createAliasCommand = new CreateAliasCommand({
+					    FunctionName: functionName,
+					    Name: aliasName,
+					    Description: \`Alias for commit \${aliasName}\`,
+					    FunctionVersion: functionVersion,
+					  });
+					  await lambdaClient.send(createAliasCommand);
+                    }
                   } else if (event.RequestType === 'Delete') {
                     const listAliasesCommand = new ListAliasesCommand({ FunctionName: functionName });
                     const aliases = await lambdaClient.send(listAliasesCommand);
