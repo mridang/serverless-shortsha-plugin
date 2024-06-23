@@ -42,9 +42,6 @@
 	},
 	"homepage": "https://github.com/mridang/serverless-shortsha-plugin",
 	"bugs": "https://github.com/mridang/serverless-shortsha-plugin/issues",
-	"overrides": {
-		"ip": "2.0.1"
-	},
 	"devDependencies": {
 		"@semantic-release/commit-analyzer": "^13.0.0",
 		"@semantic-release/git": "^10.0.1",
