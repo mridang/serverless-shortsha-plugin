@@ -31,7 +31,7 @@
 	"description": "A plugin for the serverless framework to inspect the setup via Checkov",
 	"private": false,
 	"peerDependencies": {
-		"serverless": "^3.38.0"
+		"serverless": "^3.0.0"
 	},
 	"engines": {
 		"node": "20.x"
