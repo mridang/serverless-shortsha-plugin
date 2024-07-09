@@ -13,14 +13,14 @@ This makes it easier to deduce the version that is running.
 Install using NPM by using the following command
 
 ```sh
-npm install --save-dev serverless-shortsha-plugin
+npm install --save-dev @mridang/serverless-shortsha-plugin
 ```
 
 And then add the plugin to your `serverless.yml` file:
 
 ```yaml
 plugins:
-  - serverless-shortsha-plugin
+  - @mridang/serverless-shortsha-plugin
 ```
 
 A thorough guide on installing plugins can be found at
