@@ -1,7 +1,6 @@
 {
 	"name": "@mridang/serverless-shortsha-plugin",
-	"version": "0.2.0",
-	"type": "module",
+	"version": "0.1.4",
 	"scripts": {
 		"prepack": "tsc",
 		"build": "tsc",

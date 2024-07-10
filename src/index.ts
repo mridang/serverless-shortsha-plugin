@@ -1,6 +1,4 @@
 import Serverless from 'serverless';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore since the types are broken
 import Plugin, { Logging } from 'serverless/classes/Plugin';
 import { execSync } from 'node:child_process';
 
@@ -178,6 +176,4 @@ class ServerlessShortshaPlugin implements Plugin {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore since the types are broken
 export = ServerlessShortshaPlugin;
