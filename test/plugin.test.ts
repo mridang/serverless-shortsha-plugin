@@ -6,6 +6,7 @@ import * as fs from 'node:fs';
 import {
   CloudFormationResource,
   CloudFormationResources,
+  // eslint-disable-next-line import/no-unresolved
 } from 'serverless/plugins/aws/provider/awsProvider';
 
 const logsBuffer: string[] = [];

@@ -1,4 +1,5 @@
 import Serverless from 'serverless';
+// eslint-disable-next-line import/no-unresolved
 import Plugin, { Logging } from 'serverless/classes/Plugin';
 import { execSync } from 'node:child_process';
 
@@ -23,7 +24,7 @@ class ServerlessShortshaPlugin implements Plugin {
   getGitCommitSha(): string | null {
     try {
       return execSync('git rev-parse --short HEAD').toString().trim();
-    } catch (error) {
+    } catch {
       this.logging.log.notice('Not a Git repository or Git command failed');
       return null;
     }
