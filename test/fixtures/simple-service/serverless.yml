@@ -10,6 +10,8 @@ plugins:
 functions:
   foo:
     handler: index.handler
+    environment:
+      FOO: BAR
 
   bar:
     handler: index.handler

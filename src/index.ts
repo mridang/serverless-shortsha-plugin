@@ -2,6 +2,8 @@ import Serverless from 'serverless';
 // eslint-disable-next-line import/no-unresolved
 import Plugin, { Logging } from 'serverless/classes/Plugin';
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 class ServerlessShortshaPlugin implements Plugin {
   public readonly hooks: Plugin.Hooks = {};
@@ -14,6 +16,7 @@ class ServerlessShortshaPlugin implements Plugin {
     private readonly logging: Logging,
   ) {
     this.hooks = {
+      'after:package:initialize': this.addEnvironmentVariable.bind(this),
       'after:aws:package:finalize:mergeCustomProviderResources':
         this.addAliases.bind(this),
     };
@@ -27,6 +30,23 @@ class ServerlessShortshaPlugin implements Plugin {
     } catch {
       this.logging.log.notice('Not a Git repository or Git command failed');
       return null;
+    }
+  }
+
+  addEnvironmentVariable() {
+    const commitSha = this.getGitCommitSha();
+    if (commitSha !== null) {
+      for (const functionName of this.serverless.service.getAllFunctions()) {
+        const func = this.serverless.service.getFunction(functionName);
+
+        if (!func.environment) {
+          func.environment = {
+            SERVICE_VERSION: commitSha,
+          };
+        } else {
+          func.environment['SERVICE_VERSION'] = commitSha;
+        }
+      }
     }
   }
 
@@ -57,52 +77,13 @@ class ServerlessShortshaPlugin implements Plugin {
           Handler: 'index.handler',
           Role: { 'Fn::GetAtt': ['CustomResourceHandlerLambdaRole', 'Arn'] },
           Code: {
-            ZipFile: `
-              const { LambdaClient, CreateAliasCommand, DeleteAliasCommand, ListAliasesCommand } = require('@aws-sdk/client-lambda');
-              const response = require('cfn-response');
-
-              exports.handler = async (event, context) => {
-                console.log(event);
-                const lambdaClient = new LambdaClient();
-                const functionName = event.ResourceProperties.FunctionName;
-                const aliasName = event.ResourceProperties.AliasName;
-                const functionVersion = event.ResourceProperties.FunctionVersion;
-
-                try {
-                  if (event.RequestType === 'Create' || event.RequestType === 'Update') {
-                    const listAliasesCommand = new ListAliasesCommand({ FunctionName: functionName });
-				    const aliases = await lambdaClient.send(listAliasesCommand);
-
-			  	    if (aliases.Aliases.some(alias => alias.Name === aliasName)) {
-					  console.warn(\`Alias \${aliasName} already exists for function \${functionName}\`);
-				    } else {
-					  const createAliasCommand = new CreateAliasCommand({
-					    FunctionName: functionName,
-					    Name: aliasName,
-					    Description: \`Alias for commit \${aliasName}\`,
-					    FunctionVersion: functionVersion,
-					  });
-					  await lambdaClient.send(createAliasCommand);
-                    }
-                  } else if (event.RequestType === 'Delete') {
-                    const listAliasesCommand = new ListAliasesCommand({ FunctionName: functionName });
-                    const aliases = await lambdaClient.send(listAliasesCommand);
-
-                    for (const alias of aliases.Aliases) {
-                      const deleteAliasCommand = new DeleteAliasCommand({
-                        FunctionName: functionName,
-                        Name: alias.Name,
-                      });
-                      await lambdaClient.send(deleteAliasCommand);
-                    }
-                  }
-                  await response.send(event, context, response.SUCCESS, undefined, \`\${functionName}/shortsha\`);
-                } catch (error) {
-                  console.error(error);
-                  await response.send(event, context, response.FAILED, undefined, \`\${functionName}/shortsha\`);
-                }
-              };
-            `,
+            ZipFile: (() => {
+              try {
+                return readFileSync(join(__dirname, 'lambda.js'), 'utf8');
+              } catch {
+                return readFileSync(join(__dirname, 'lambda.ts'), 'utf8');
+              }
+            })(),
           },
         },
       },
