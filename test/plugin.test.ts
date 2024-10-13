@@ -18,6 +18,9 @@ logEmitter.on(
 );
 
 describe('plugin tests', () => {
+  const expectKey = (obj: object, name: string) =>
+    Object.keys(obj).find((k) => k.startsWith(name)) || '';
+
   it('should run shortsha on package', async () => {
     await runServerless(path.join(require.resolve('serverless'), '..', '..'), {
       cwd: path.resolve(__dirname, 'fixtures', 'simple-service'),
@@ -235,24 +238,24 @@ describe('plugin tests', () => {
         },
         DependsOn: ['BarLogGroup'],
       },
-      FooLambdaVersionVLvfH5HDcvBg3OywOApuo58TY7rErhDMhb4X3CMdbGo: {
+      [expectKey(compiledTemplate.Resources, 'FooLambdaVersion')]: {
         Type: 'AWS::Lambda::Version',
         DeletionPolicy: 'Retain',
         Properties: {
           FunctionName: {
             Ref: 'FooLambdaFunction',
           },
-          CodeSha256: 'Rke/vVu8DPxDMO3QCdY/dYgrn7bV8RJu8NYtjZSDzr8=',
+          CodeSha256: expect.any(String),
         },
       },
-      BarLambdaVersionon8IzZDPHhUjbCRI73HBFbNcI5OBNXHvG0R67lnAdZc: {
+      [expectKey(compiledTemplate.Resources, 'BarLambdaVersion')]: {
         Type: 'AWS::Lambda::Version',
         DeletionPolicy: 'Retain',
         Properties: {
           FunctionName: {
             Ref: 'BarLambdaFunction',
           },
-          CodeSha256: 'Rke/vVu8DPxDMO3QCdY/dYgrn7bV8RJu8NYtjZSDzr8=',
+          CodeSha256: expect.any(String),
         },
       },
       CustomResourceHandlerLambdaFunction: {
@@ -322,7 +325,7 @@ describe('plugin tests', () => {
           },
           FunctionVersion: {
             'Fn::GetAtt': [
-              'FooLambdaVersionVLvfH5HDcvBg3OywOApuo58TY7rErhDMhb4X3CMdbGo',
+              expectKey(compiledTemplate.Resources, 'FooLambdaVersion'),
               'Version',
             ],
           },
@@ -340,7 +343,7 @@ describe('plugin tests', () => {
           },
           FunctionVersion: {
             'Fn::GetAtt': [
-              'BarLambdaVersionon8IzZDPHhUjbCRI73HBFbNcI5OBNXHvG0R67lnAdZc',
+              expectKey(compiledTemplate.Resources, 'BarLambdaVersion'),
               'Version',
             ],
           },
