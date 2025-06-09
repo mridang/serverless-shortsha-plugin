@@ -27,7 +27,7 @@
 	"files": [
 		"dist"
 	],
-	"license": "ISC",
+	"license": "Apache-2.0",
 	"description": "A plugin for the serverless framework to inspect the setup via Checkov",
 	"private": false,
 	"peerDependencies": {
