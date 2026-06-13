@@ -3,7 +3,11 @@ import Serverless from 'serverless';
 import Plugin, { Logging } from 'serverless/classes/Plugin';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 class ServerlessShortshaPlugin implements Plugin {
   public readonly hooks: Plugin.Hooks = {};
@@ -158,4 +162,4 @@ class ServerlessShortshaPlugin implements Plugin {
   }
 }
 
-export = ServerlessShortshaPlugin;
+export default ServerlessShortshaPlugin;

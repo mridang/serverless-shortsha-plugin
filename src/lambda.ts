@@ -7,7 +7,7 @@ import {
 import response from 'cfn-response';
 import lambda from 'aws-lambda';
 
-exports.handler = async (
+export const handler = async (
   event: lambda.CloudFormationCustomResourceEvent & {
     ResourceProperties: {
       FunctionName: string;
