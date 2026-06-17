@@ -1,5 +1,5 @@
 import Serverless from 'serverless';
-// eslint-disable-next-line import/no-unresolved
+
 import Plugin, { Logging } from 'serverless/classes/Plugin';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'fs';
