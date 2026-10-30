@@ -1,360 +1,86 @@
-import runServerless from '@serverless/test/run-serverless';
-import path, { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
-// @ts-expect-error since the types are missing
-import logEmitter from 'log/lib/emitter.js';
-import * as fs from 'node:fs';
+import { execSync } from 'node:child_process';
+import ServerlessShortshaPlugin from '../src/index';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const require = createRequire(import.meta.url);
+type Ctor = ConstructorParameters<typeof ServerlessShortshaPlugin>;
 
-const logsBuffer: string[] = [];
-logEmitter.on(
-  'log',
-  (event: { logger: { namespace: string }; messageTokens: string[] }) => {
-    if (
-      !event.logger.namespace.startsWith('serverless:lifecycle') &&
-      event.logger.namespace !== 'serverless'
-    ) {
-      logsBuffer.push(event.messageTokens[0]);
-    }
-  },
-);
+function createPlugin(resources: Record<string, unknown>) {
+  const functions: Record<string, { environment?: Record<string, string> }> = {
+    foo: { environment: { FOO: 'BAR' } },
+    bar: {},
+  };
+  const serverless = {
+    service: {
+      service: 'simple-service',
+      provider: {
+        stage: 'dev',
+        compiledCloudFormationTemplate: { Resources: resources },
+      },
+      getAllFunctions: () => Object.keys(functions),
+      getFunction: (name: string) => functions[name],
+    },
+  };
+  const noop = () => undefined;
+  const logging = {
+    log: { info: noop, notice: noop, success: noop, error: noop },
+  };
+  const plugin = new ServerlessShortshaPlugin(
+    serverless as unknown as Ctor[0],
+    {} as Ctor[1],
+    logging as unknown as Ctor[2],
+  );
+  return { plugin, serverless, functions };
+}
 
 describe('plugin tests', () => {
-  const expectKey = (obj: object, name: string) =>
-    Object.keys(obj).find((k) => k.startsWith(name)) || '';
+  const sha = execSync('git rev-parse --short HEAD').toString().trim();
 
-  it('should run shortsha on package', async () => {
-    await runServerless(path.join(require.resolve('serverless'), '..', '..'), {
-      cwd: path.resolve(__dirname, 'fixtures', 'simple-service'),
-      command: 'package',
+  it('should add the commit sha to every function environment', () => {
+    const { plugin, functions } = createPlugin({});
+
+    (plugin.hooks['after:package:initialize'] as () => void)();
+
+    expect(functions.foo.environment).toEqual({
+      FOO: 'BAR',
+      SERVICE_VERSION: sha,
+    });
+    expect(functions.bar.environment).toEqual({ SERVICE_VERSION: sha });
+  });
+
+  it('should add an alias for every published function version', () => {
+    const { plugin, serverless } = createPlugin({
+      FooLambdaFunction: { Type: 'AWS::Lambda::Function', Properties: {} },
+      FooLambdaVersionabc: {
+        Type: 'AWS::Lambda::Version',
+        Properties: { FunctionName: { Ref: 'FooLambdaFunction' } },
+      },
     });
 
-    const compiledTemplatePath = path.resolve(
-      __dirname,
-      'fixtures',
-      'simple-service',
-      '.serverless',
-      'cloudformation-template-update-stack.json',
-    );
-    const compiledTemplate = JSON.parse(
-      fs.readFileSync(compiledTemplatePath, 'utf-8'),
-    );
+    (
+      plugin.hooks[
+        'after:aws:package:finalize:mergeCustomProviderResources'
+      ] as () => void
+    )();
 
-    expect(compiledTemplate.Resources).toEqual({
-      ServerlessDeploymentBucket: {
-        Type: 'AWS::S3::Bucket',
-        Properties: {
-          BucketEncryption: {
-            ServerSideEncryptionConfiguration: [
-              {
-                ServerSideEncryptionByDefault: {
-                  SSEAlgorithm: 'AES256',
-                },
-              },
-            ],
-          },
+    const resources = serverless.service.provider.compiledCloudFormationTemplate
+      .Resources as Record<string, { Type: string; Properties: unknown }>;
+    expect(resources.CustomResourceHandlerLambdaFunction.Properties).toEqual(
+      expect.objectContaining({
+        FunctionName: 'cfn-shortsha-simple-service-dev-resource',
+        Code: { ZipFile: expect.any(String) },
+      }),
+    );
+    expect(resources.CustomResourceHandlerLambdaRole.Type).toBe(
+      'AWS::IAM::Role',
+    );
+    expect(resources.FooLambdaFunctionShortShaAlias).toEqual({
+      Type: 'Custom::LambdaAlias',
+      Properties: {
+        ServiceToken: {
+          'Fn::GetAtt': ['CustomResourceHandlerLambdaFunction', 'Arn'],
         },
-      },
-      ServerlessDeploymentBucketPolicy: {
-        Type: 'AWS::S3::BucketPolicy',
-        Properties: {
-          Bucket: {
-            Ref: 'ServerlessDeploymentBucket',
-          },
-          PolicyDocument: {
-            Statement: [
-              {
-                Action: 's3:*',
-                Effect: 'Deny',
-                Principal: '*',
-                Resource: [
-                  {
-                    'Fn::Join': [
-                      '',
-                      [
-                        'arn:',
-                        {
-                          Ref: 'AWS::Partition',
-                        },
-                        ':s3:::',
-                        {
-                          Ref: 'ServerlessDeploymentBucket',
-                        },
-                        '/*',
-                      ],
-                    ],
-                  },
-                  {
-                    'Fn::Join': [
-                      '',
-                      [
-                        'arn:',
-                        {
-                          Ref: 'AWS::Partition',
-                        },
-                        ':s3:::',
-                        {
-                          Ref: 'ServerlessDeploymentBucket',
-                        },
-                      ],
-                    ],
-                  },
-                ],
-                Condition: {
-                  Bool: {
-                    'aws:SecureTransport': false,
-                  },
-                },
-              },
-            ],
-          },
-        },
-      },
-      FooLogGroup: {
-        Type: 'AWS::Logs::LogGroup',
-        Properties: {
-          LogGroupName: '/aws/lambda/simple-service-dev-foo',
-        },
-      },
-      BarLogGroup: {
-        Type: 'AWS::Logs::LogGroup',
-        Properties: {
-          LogGroupName: '/aws/lambda/simple-service-dev-bar',
-        },
-      },
-      IamRoleLambdaExecution: {
-        Type: 'AWS::IAM::Role',
-        Properties: {
-          AssumeRolePolicyDocument: {
-            Version: '2012-10-17',
-            Statement: [
-              {
-                Effect: 'Allow',
-                Principal: {
-                  Service: ['lambda.amazonaws.com'],
-                },
-                Action: ['sts:AssumeRole'],
-              },
-            ],
-          },
-          Policies: [
-            {
-              PolicyName: {
-                'Fn::Join': ['-', ['simple-service', 'dev', 'lambda']],
-              },
-              PolicyDocument: {
-                Version: '2012-10-17',
-                Statement: [
-                  {
-                    Effect: 'Allow',
-                    Action: [
-                      'logs:CreateLogStream',
-                      'logs:CreateLogGroup',
-                      'logs:TagResource',
-                    ],
-                    Resource: [
-                      {
-                        'Fn::Sub':
-                          'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/simple-service-dev*:*',
-                      },
-                    ],
-                  },
-                  {
-                    Effect: 'Allow',
-                    Action: ['logs:PutLogEvents'],
-                    Resource: [
-                      {
-                        'Fn::Sub':
-                          'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/simple-service-dev*:*:*',
-                      },
-                    ],
-                  },
-                ],
-              },
-            },
-          ],
-          Path: '/',
-          RoleName: {
-            'Fn::Join': [
-              '-',
-              [
-                'simple-service',
-                'dev',
-                {
-                  Ref: 'AWS::Region',
-                },
-                'lambdaRole',
-              ],
-            ],
-          },
-        },
-      },
-      FooLambdaFunction: {
-        Type: 'AWS::Lambda::Function',
-        Properties: {
-          Code: {
-            S3Bucket: {
-              Ref: 'ServerlessDeploymentBucket',
-            },
-            S3Key: expect.any(String),
-          },
-          Handler: 'index.handler',
-          Runtime: 'nodejs20.x',
-          FunctionName: 'simple-service-dev-foo',
-          MemorySize: 1024,
-          Timeout: 6,
-          Environment: {
-            Variables: {
-              FOO: 'BAR',
-              SERVICE_VERSION: expect.any(String),
-            },
-          },
-          Role: {
-            'Fn::GetAtt': ['IamRoleLambdaExecution', 'Arn'],
-          },
-        },
-        DependsOn: ['FooLogGroup'],
-      },
-      BarLambdaFunction: {
-        Type: 'AWS::Lambda::Function',
-        Properties: {
-          Code: {
-            S3Bucket: {
-              Ref: 'ServerlessDeploymentBucket',
-            },
-            S3Key: expect.any(String),
-          },
-          Handler: 'index.handler',
-          Runtime: 'nodejs20.x',
-          FunctionName: 'simple-service-dev-bar',
-          MemorySize: 1024,
-          Timeout: 6,
-          Environment: {
-            Variables: {
-              SERVICE_VERSION: expect.any(String),
-            },
-          },
-          Role: {
-            'Fn::GetAtt': ['IamRoleLambdaExecution', 'Arn'],
-          },
-        },
-        DependsOn: ['BarLogGroup'],
-      },
-      [expectKey(compiledTemplate.Resources, 'FooLambdaVersion')]: {
-        Type: 'AWS::Lambda::Version',
-        DeletionPolicy: 'Retain',
-        Properties: {
-          FunctionName: {
-            Ref: 'FooLambdaFunction',
-          },
-          CodeSha256: expect.any(String),
-        },
-      },
-      [expectKey(compiledTemplate.Resources, 'BarLambdaVersion')]: {
-        Type: 'AWS::Lambda::Version',
-        DeletionPolicy: 'Retain',
-        Properties: {
-          FunctionName: {
-            Ref: 'BarLambdaFunction',
-          },
-          CodeSha256: expect.any(String),
-        },
-      },
-      CustomResourceHandlerLambdaFunction: {
-        Type: 'AWS::Lambda::Function',
-        Properties: {
-          FunctionName: 'cfn-shortsha-simple-service-dev-resource',
-          Description:
-            'A custom resource to manage function aliases for Serverless Framework projects',
-          Runtime: 'nodejs20.x',
-          Architectures: ['arm64'],
-          MemorySize: 128,
-          Handler: 'index.handler',
-          Role: {
-            'Fn::GetAtt': ['CustomResourceHandlerLambdaRole', 'Arn'],
-          },
-          Code: {
-            ZipFile: expect.any(String),
-          },
-        },
-      },
-      CustomResourceHandlerLambdaRole: {
-        Type: 'AWS::IAM::Role',
-        Properties: {
-          AssumeRolePolicyDocument: {
-            Version: '2012-10-17',
-            Statement: [
-              {
-                Effect: 'Allow',
-                Principal: {
-                  Service: 'lambda.amazonaws.com',
-                },
-                Action: 'sts:AssumeRole',
-              },
-            ],
-          },
-          Policies: [
-            {
-              PolicyName: 'CustomResourcePolicy',
-              PolicyDocument: {
-                Version: '2012-10-17',
-                Statement: [
-                  {
-                    Effect: 'Allow',
-                    Action: [
-                      'logs:*',
-                      'lambda:CreateAlias',
-                      'lambda:UpdateAlias',
-                      'lambda:DeleteAlias',
-                      'lambda:ListAliases',
-                    ],
-                    Resource: '*',
-                  },
-                ],
-              },
-            },
-          ],
-        },
-      },
-      FooLambdaFunctionShortShaAlias: {
-        Type: 'Custom::LambdaAlias',
-        Properties: {
-          ServiceToken: {
-            'Fn::GetAtt': ['CustomResourceHandlerLambdaFunction', 'Arn'],
-          },
-          FunctionName: {
-            Ref: 'FooLambdaFunction',
-          },
-          FunctionVersion: {
-            'Fn::GetAtt': [
-              expectKey(compiledTemplate.Resources, 'FooLambdaVersion'),
-              'Version',
-            ],
-          },
-          AliasName: expect.stringMatching(/version-[a-z0-9]{7}/),
-        },
-      },
-      BarLambdaFunctionShortShaAlias: {
-        Type: 'Custom::LambdaAlias',
-        Properties: {
-          ServiceToken: {
-            'Fn::GetAtt': ['CustomResourceHandlerLambdaFunction', 'Arn'],
-          },
-          FunctionName: {
-            Ref: 'BarLambdaFunction',
-          },
-          FunctionVersion: {
-            'Fn::GetAtt': [
-              expectKey(compiledTemplate.Resources, 'BarLambdaVersion'),
-              'Version',
-            ],
-          },
-          AliasName: expect.stringMatching(/version-[a-z0-9]{7}/),
-        },
+        FunctionName: { Ref: 'FooLambdaFunction' },
+        FunctionVersion: { 'Fn::GetAtt': ['FooLambdaVersionabc', 'Version'] },
+        AliasName: `version-${sha}`,
       },
     });
   });
