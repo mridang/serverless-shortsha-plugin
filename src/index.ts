@@ -9,11 +9,7 @@ import Serverless from 'serverless';
 import Plugin, { Logging } from 'serverless/classes/Plugin';
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { promisify } from 'node:util';
-
-// eslint-disable-next-line n/no-unsupported-features/node-builtins -- devbox and .nvmrc pin Node 22.16 or newer, which ships import.meta.dirname
-const packageDirectory = import.meta.dirname;
 
 /**
  * Reads the bundled custom resource handler, preferring the compiled `lambda.js` over the TypeScript source.
@@ -23,9 +19,9 @@ const packageDirectory = import.meta.dirname;
  */
 async function readLambdaSource(): Promise<string> {
   try {
-    return await readFile(path.join(packageDirectory, 'lambda.js'), 'utf8');
+    return await readFile(new URL('lambda.js', import.meta.url), 'utf8');
   } catch {
-    return readFile(path.join(packageDirectory, 'lambda.ts'), 'utf8');
+    return readFile(new URL('lambda.ts', import.meta.url), 'utf8');
   }
 }
 
