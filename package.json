@@ -14,6 +14,14 @@
     "test:watch": "npm run test -- --watch"
   },
   "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": true,
   "types": "dist/index.d.ts",
   "keywords": [
     "serverless",
