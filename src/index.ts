@@ -2,12 +2,11 @@ import Serverless from 'serverless';
 
 import Plugin, { Logging } from 'serverless/classes/Plugin';
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __filename = import.meta.filename;
+const __dirname = import.meta.dirname;
 
 class ServerlessShortshaPlugin implements Plugin {
   public readonly hooks: Plugin.Hooks = {};
@@ -43,12 +42,12 @@ class ServerlessShortshaPlugin implements Plugin {
       for (const functionName of this.serverless.service.getAllFunctions()) {
         const func = this.serverless.service.getFunction(functionName);
 
-        if (!func.environment) {
+        if (func.environment) {
+          func.environment['SERVICE_VERSION'] = commitSha;
+        } else {
           func.environment = {
             SERVICE_VERSION: commitSha,
           };
-        } else {
-          func.environment['SERVICE_VERSION'] = commitSha;
         }
       }
     }
