@@ -1,13 +1,37 @@
+/**
+ * @file Serverless Framework plugin that tags functions with the short Git SHA and adds matching aliases.
+ *
+ * The plugin records the current short commit hash as a `SERVICE_VERSION` environment variable on every
+ * function and creates a `version-<sha>` alias for each published Lambda version through a custom resource.
+ */
 import Serverless from 'serverless';
 
 import Plugin, { Logging } from 'serverless/classes/Plugin';
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { execFile } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { promisify } from 'node:util';
 
-const __filename = import.meta.filename;
-const __dirname = import.meta.dirname;
+// eslint-disable-next-line n/no-unsupported-features/node-builtins -- devbox and .nvmrc pin Node 22.16 or newer, which ships import.meta.dirname
+const packageDirectory = import.meta.dirname;
 
+/**
+ * Reads the bundled custom resource handler, preferring the compiled `lambda.js` over the TypeScript source.
+ * @returns The source text of the custom resource handler.
+ * @example
+ * const zipFile = await readLambdaSource();
+ */
+async function readLambdaSource(): Promise<string> {
+  try {
+    return await readFile(path.join(packageDirectory, 'lambda.js'), 'utf8');
+  } catch {
+    return readFile(path.join(packageDirectory, 'lambda.ts'), 'utf8');
+  }
+}
+
+/**
+ * Serverless plugin that stamps functions with the commit SHA and aliases every published Lambda version to it.
+ */
 class ServerlessShortshaPlugin implements Plugin {
   public readonly hooks: Plugin.Hooks = {};
   public readonly name: string = 'serverless-shortsha-plugin';
@@ -27,17 +51,37 @@ class ServerlessShortshaPlugin implements Plugin {
       this.serverless.service.provider.stage || this.options.stage || 'dev';
   }
 
-  getGitCommitSha(): string | null {
+  /**
+   * Resolves the short commit hash of the current Git checkout.
+   *
+   * A failed Git invocation, such as running outside a repository, is logged as a notice and yields null.
+   * @returns The abbreviated commit hash, or null when Git cannot report one.
+   * @example
+   * const commitSha = await plugin.getGitCommitSha();
+   */
+  async getGitCommitSha(): Promise<string | null> {
     try {
-      return execSync('git rev-parse --short HEAD').toString().trim();
+      const { stdout } = await promisify(execFile)('git', [
+        'rev-parse',
+        '--short',
+        'HEAD',
+      ]);
+      return stdout.trim();
     } catch {
       this.logging.log.notice('Not a Git repository or Git command failed');
       return null;
     }
   }
 
-  addEnvironmentVariable() {
-    const commitSha = this.getGitCommitSha();
+  /**
+   * Sets the `SERVICE_VERSION` environment variable on every function to the current commit SHA.
+   *
+   * Functions that already define environment variables keep them; the commit SHA is added alongside.
+   * @example
+   * await plugin.addEnvironmentVariable();
+   */
+  async addEnvironmentVariable(): Promise<void> {
+    const commitSha = await this.getGitCommitSha();
     if (commitSha !== null) {
       for (const functionName of this.serverless.service.getAllFunctions()) {
         const func = this.serverless.service.getFunction(functionName);
@@ -53,8 +97,15 @@ class ServerlessShortshaPlugin implements Plugin {
     }
   }
 
-  addAliases() {
-    const commitSha = this.getGitCommitSha();
+  /**
+   * Adds the alias custom resource and one `version-<sha>` alias per published Lambda version to the template.
+   *
+   * Nothing is added when the commit SHA cannot be determined, and the compiled template is left untouched.
+   * @example
+   * await plugin.addAliases();
+   */
+  async addAliases(): Promise<void> {
+    const commitSha = await this.getGitCommitSha();
 
     if (!commitSha) {
       this.logging.log.notice(
@@ -63,6 +114,7 @@ class ServerlessShortshaPlugin implements Plugin {
       return;
     }
 
+    const handlerSource = await readLambdaSource();
     const template =
       this.serverless.service.provider.compiledCloudFormationTemplate;
 
@@ -80,13 +132,7 @@ class ServerlessShortshaPlugin implements Plugin {
           Handler: 'index.handler',
           Role: { 'Fn::GetAtt': ['CustomResourceHandlerLambdaRole', 'Arn'] },
           Code: {
-            ZipFile: (() => {
-              try {
-                return readFileSync(join(__dirname, 'lambda.js'), 'utf8');
-              } catch {
-                return readFileSync(join(__dirname, 'lambda.ts'), 'utf8');
-              }
-            })(),
+            ZipFile: handlerSource,
           },
         },
       },

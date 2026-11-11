@@ -1,3 +1,9 @@
+/**
+ * @file CloudFormation custom resource handler that keeps Lambda aliases in step with the commit SHA.
+ *
+ * The handler creates the `version-<sha>` alias on Create and Update, and removes every alias of the function
+ * on Delete, reporting the outcome back to CloudFormation through the cfn-response helper.
+ */
 import {
   LambdaClient,
   CreateAliasCommand,
@@ -7,6 +13,16 @@ import {
 import response from 'cfn-response';
 import lambda from 'aws-lambda';
 
+/**
+ * Handles a CloudFormation custom resource request for a function alias.
+ *
+ * Create and Update add the alias unless it already exists, Delete removes all aliases of the function, and any
+ * other request type leaves the aliases untouched. Failures are logged and reported to CloudFormation as FAILED.
+ * @param event - The CloudFormation custom resource event with the function name, alias name and version.
+ * @param context - The Lambda invocation context passed through to cfn-response.
+ * @example
+ * await handler(event, context);
+ */
 export const handler = async (
   event: lambda.CloudFormationCustomResourceEvent & {
     ResourceProperties: {
@@ -56,6 +72,8 @@ export const handler = async (
         });
         await lambdaClient.send(deleteAliasCommand);
       }
+    } else {
+      // Other request types leave the existing aliases untouched.
     }
     await response.send(
       event,
