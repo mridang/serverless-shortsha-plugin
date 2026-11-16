@@ -4,9 +4,10 @@
  * The plugin records the current short commit hash as a `SERVICE_VERSION` environment variable on every
  * function and creates a `version-<sha>` alias for each published Lambda version through a custom resource.
  */
-import Serverless from 'serverless';
+import type Serverless from 'serverless';
 
-import Plugin, { Logging } from 'serverless/classes/Plugin';
+import type { Logging } from 'serverless/classes/Plugin';
+import type Plugin from 'serverless/classes/Plugin';
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
@@ -23,6 +24,12 @@ async function readLambdaSource(): Promise<string> {
   } catch {
     return readFile(new URL('lambda.ts', import.meta.url), 'utf8');
   }
+}
+
+/** The part of a Lambda version resource that names the function it versions. */
+interface LambdaVersionResource {
+  Type: string;
+  Properties: { FunctionName: { Ref: string } };
 }
 
 /**
@@ -84,7 +91,7 @@ class ServerlessShortshaPlugin implements Plugin {
           this.serverless.service.getFunction(functionName);
 
         if (lambdaFunction.environment) {
-          lambdaFunction.environment['SERVICE_VERSION'] = commitSha;
+          lambdaFunction.environment.SERVICE_VERSION = commitSha;
         } else {
           lambdaFunction.environment = {
             SERVICE_VERSION: commitSha,
@@ -172,7 +179,9 @@ class ServerlessShortshaPlugin implements Plugin {
         },
       },
       ...Object.fromEntries(
-        Object.entries(template.Resources)
+        Object.entries(
+          template.Resources as Record<string, LambdaVersionResource>,
+        )
           .filter(([, resource]) => resource.Type === 'AWS::Lambda::Version')
           .map(([key, resource]) => {
             const functionName = resource.Properties.FunctionName.Ref;

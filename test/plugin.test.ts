@@ -6,7 +6,7 @@
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import ServerlessShortshaPlugin from '../src/index';
+import ServerlessShortshaPlugin from '../src/index.js';
 
 type Ctor = ConstructorParameters<typeof ServerlessShortshaPlugin>;
 
@@ -39,7 +39,7 @@ function createPlugin(resources: Record<string, unknown>) {
   };
   const plugin = new ServerlessShortshaPlugin(
     serverless as unknown as Ctor[0],
-    {} as Ctor[1],
+    {},
     logging as unknown as Ctor[2],
   );
   return { plugin, serverless, functions };
@@ -89,7 +89,7 @@ describe('plugin tests', () => {
     expect(resources.CustomResourceHandlerLambdaFunction.Properties).toEqual(
       expect.objectContaining({
         FunctionName: 'cfn-shortsha-simple-service-dev-resource',
-        Code: { ZipFile: expect.any(String) },
+        Code: { ZipFile: expect.any(String) as string },
       }),
     );
     expect(resources.CustomResourceHandlerLambdaRole.Type).toBe(
