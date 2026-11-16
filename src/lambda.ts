@@ -11,7 +11,7 @@ import {
   ListAliasesCommand,
 } from '@aws-sdk/client-lambda';
 import response from 'cfn-response';
-import lambda from 'aws-lambda';
+import type lambda from 'aws-lambda';
 
 /**
  * Handles a CloudFormation custom resource request for a function alias.
@@ -75,7 +75,7 @@ export const handler = async (
     } else {
       // Other request types leave the existing aliases untouched.
     }
-    await response.send(
+    response.send(
       event,
       context,
       response.SUCCESS,
@@ -84,7 +84,7 @@ export const handler = async (
     );
   } catch (error) {
     console.error(error);
-    await response.send(
+    response.send(
       event,
       context,
       response.FAILED,
