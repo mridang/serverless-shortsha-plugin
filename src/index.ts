@@ -80,12 +80,13 @@ class ServerlessShortshaPlugin implements Plugin {
     const commitSha = await this.getGitCommitSha();
     if (commitSha !== null) {
       for (const functionName of this.serverless.service.getAllFunctions()) {
-        const func = this.serverless.service.getFunction(functionName);
+        const lambdaFunction =
+          this.serverless.service.getFunction(functionName);
 
-        if (func.environment) {
-          func.environment['SERVICE_VERSION'] = commitSha;
+        if (lambdaFunction.environment) {
+          lambdaFunction.environment['SERVICE_VERSION'] = commitSha;
         } else {
-          func.environment = {
+          lambdaFunction.environment = {
             SERVICE_VERSION: commitSha,
           };
         }
@@ -170,18 +171,18 @@ class ServerlessShortshaPlugin implements Plugin {
           ],
         },
       },
-      ...Object.entries(template.Resources)
-        .filter(([, resource]) => resource.Type === 'AWS::Lambda::Version')
-        .reduce(
-          (acc, [key, resource]) => {
+      ...Object.fromEntries(
+        Object.entries(template.Resources)
+          .filter(([, resource]) => resource.Type === 'AWS::Lambda::Version')
+          .map(([key, resource]) => {
             const functionName = resource.Properties.FunctionName.Ref;
             this.logging.log.info(
               `Alias "${commitSha}" added for function "${functionName}"`,
             );
 
-            return {
-              ...acc,
-              [`${functionName}ShortShaAlias`]: {
+            return [
+              `${functionName}ShortShaAlias`,
+              {
                 Type: 'Custom::LambdaAlias',
                 Properties: {
                   ServiceToken: {
@@ -195,10 +196,9 @@ class ServerlessShortshaPlugin implements Plugin {
                   AliasName: `version-${commitSha}`,
                 },
               },
-            };
-          },
-          {} as { [key: string]: object },
-        ),
+            ] as const;
+          }),
+      ),
     };
   }
 }
