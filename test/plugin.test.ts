@@ -7,11 +7,21 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import ServerlessShortshaPlugin from '../src/index.js';
+import type Plugin from 'serverless/classes/Plugin';
 
 type Ctor = ConstructorParameters<typeof ServerlessShortshaPlugin>;
 
 interface FunctionDefinition {
   environment?: Record<string, string>;
+}
+
+interface Resource {
+  Type: string;
+  Properties: unknown;
+}
+
+interface CompiledTemplate {
+  Resources: Record<string, Resource>;
 }
 
 interface FunctionDefinitions {
@@ -25,32 +35,52 @@ interface FunctionDefinitions {
  * @example
  * const { plugin, serverless, functions } = createPlugin({});
  */
-function createPlugin(resources: Record<string, unknown>) {
+function createPlugin(resources: Record<string, Resource>) {
   const functions: FunctionDefinitions = {
     foo: { environment: { FOO: 'BAR' } },
     bar: {},
   };
+  const template: CompiledTemplate = { Resources: resources };
   const serverless = {
     service: {
       service: 'simple-service',
       provider: {
         stage: 'dev',
-        compiledCloudFormationTemplate: { Resources: resources },
+        compiledCloudFormationTemplate: template,
       },
       getAllFunctions: () => Object.keys(functions),
       getFunction: (name: string) => functions[name],
     },
   };
   const noop = () => undefined;
-  const logging = {
-    log: { info: noop, notice: noop, success: noop, error: noop },
+  const progress: Plugin.Progress = {
+    namespace: 'test',
+    name: 'test',
+    update: noop,
+    info: noop,
+    notice: noop,
+    remove: noop,
+  };
+  const logging: Plugin.Logging = {
+    log: {
+      error: noop,
+      warning: noop,
+      notice: noop,
+      info: noop,
+      debug: noop,
+      verbose: noop,
+      success: noop,
+    },
+    writeText: noop,
+    progress: { get: () => progress, create: () => progress },
   };
   const plugin = new ServerlessShortshaPlugin(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- a full Serverless instance needs a real service load; the plugin reads only the service name, provider, and function accessors
     serverless as unknown as Ctor[0],
     {},
-    logging as unknown as Ctor[2],
+    logging,
   );
-  return { plugin, serverless, functions };
+  return { plugin, template, functions };
 }
 
 describe('plugin tests', () => {
@@ -68,7 +98,7 @@ describe('plugin tests', () => {
   it('should add the commit sha to every function environment', async () => {
     const { plugin, functions } = createPlugin({});
 
-    await (plugin.hooks['after:package:initialize'] as () => Promise<void>)();
+    await plugin.hooks['after:package:initialize']();
 
     expect(functions.foo.environment).toEqual({
       FOO: 'BAR',
@@ -78,7 +108,7 @@ describe('plugin tests', () => {
   });
 
   it('should add an alias for every published function version', async () => {
-    const { plugin, serverless } = createPlugin({
+    const { plugin, template } = createPlugin({
       FooLambdaFunction: { Type: 'AWS::Lambda::Function', Properties: {} },
       FooLambdaVersionabc: {
         Type: 'AWS::Lambda::Version',
@@ -86,20 +116,19 @@ describe('plugin tests', () => {
       },
     });
 
-    await (
-      plugin.hooks[
-        'after:aws:package:finalize:mergeCustomProviderResources'
-      ] as () => Promise<void>
-    )();
+    await plugin.hooks[
+      'after:aws:package:finalize:mergeCustomProviderResources'
+    ]();
 
-    const resources = serverless.service.provider.compiledCloudFormationTemplate
-      .Resources as Record<string, { Type: string; Properties: unknown }>;
+    const resources = template.Resources;
     expect(resources.CustomResourceHandlerLambdaFunction.Properties).toEqual(
       expect.objectContaining({
         FunctionName: 'cfn-shortsha-simple-service-dev-resource',
-        Code: { ZipFile: expect.any(String) as string },
       }),
     );
+    expect(
+      resources.CustomResourceHandlerLambdaFunction.Properties,
+    ).toHaveProperty('Code.ZipFile', expect.any(String));
     expect(resources.CustomResourceHandlerLambdaRole.Type).toBe(
       'AWS::IAM::Role',
     );
