@@ -4,13 +4,12 @@
  * The plugin records the current short commit hash as a `SERVICE_VERSION` environment variable on every
  * function and creates a `version-<sha>` alias for each published Lambda version through a custom resource.
  */
-import type Serverless from 'serverless';
 
-import type { Logging } from 'serverless/classes/Plugin';
-import type Plugin from 'serverless/classes/Plugin';
 import { execFile } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
+import type Plugin from 'serverless/classes/Plugin';
+import type Serverless from 'serverless';
 
 /**
  * Reads the bundled custom resource handler, preferring the compiled `lambda.js` over the TypeScript source.
@@ -43,7 +42,7 @@ class ServerlessShortshaPlugin implements Plugin {
   constructor(
     private readonly serverless: Serverless,
     private readonly options: Serverless.Options,
-    private readonly logging: Logging,
+    private readonly logging: Plugin.Logging,
   ) {
     this.hooks = {
       'after:package:initialize': this.addEnvironmentVariable.bind(this),
@@ -86,17 +85,16 @@ class ServerlessShortshaPlugin implements Plugin {
   async addEnvironmentVariable(): Promise<void> {
     const commitSha = await this.getGitCommitSha();
     if (commitSha !== null) {
+      // eslint-disable-next-line functional/no-loop-statements -- the function definitions owned by Serverless are updated in place
       for (const functionName of this.serverless.service.getAllFunctions()) {
         const lambdaFunction =
           this.serverless.service.getFunction(functionName);
 
-        if (lambdaFunction.environment) {
-          lambdaFunction.environment.SERVICE_VERSION = commitSha;
-        } else {
-          lambdaFunction.environment = {
-            SERVICE_VERSION: commitSha,
-          };
-        }
+        // eslint-disable-next-line functional/immutable-data -- the function definitions owned by Serverless are updated in place
+        lambdaFunction.environment = {
+          ...lambdaFunction.environment,
+          SERVICE_VERSION: commitSha,
+        };
       }
     }
   }
@@ -122,6 +120,7 @@ class ServerlessShortshaPlugin implements Plugin {
     const template =
       this.serverless.service.provider.compiledCloudFormationTemplate;
 
+    // eslint-disable-next-line functional/immutable-data -- the compiled template owned by Serverless is updated in place
     template.Resources = {
       ...template.Resources,
       CustomResourceHandlerLambdaFunction: {

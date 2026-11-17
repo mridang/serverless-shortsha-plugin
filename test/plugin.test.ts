@@ -10,6 +10,14 @@ import ServerlessShortshaPlugin from '../src/index.js';
 
 type Ctor = ConstructorParameters<typeof ServerlessShortshaPlugin>;
 
+interface FunctionDefinition {
+  environment?: Record<string, string>;
+}
+
+interface FunctionDefinitions {
+  [name: string]: FunctionDefinition;
+}
+
 /**
  * Builds a plugin instance wired to an in-memory Serverless service with two functions.
  * @param resources - The compiled CloudFormation resources the plugin reads and extends.
@@ -18,7 +26,7 @@ type Ctor = ConstructorParameters<typeof ServerlessShortshaPlugin>;
  * const { plugin, serverless, functions } = createPlugin({});
  */
 function createPlugin(resources: Record<string, unknown>) {
-  const functions: Record<string, { environment?: Record<string, string> }> = {
+  const functions: FunctionDefinitions = {
     foo: { environment: { FOO: 'BAR' } },
     bar: {},
   };
