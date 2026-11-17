@@ -40,40 +40,46 @@ export const handler = async (
   const functionVersion = event.ResourceProperties.FunctionVersion;
 
   try {
-    if (event.RequestType === 'Create' || event.RequestType === 'Update') {
-      const listAliasesCommand = new ListAliasesCommand({
-        FunctionName: functionName,
-      });
-      const aliases = await lambdaClient.send(listAliasesCommand);
-
-      if (aliases.Aliases?.some((alias) => alias.Name === aliasName)) {
-        console.warn(
-          `Alias \${aliasName} already exists for function ${functionName}`,
-        );
-      } else {
-        const createAliasCommand = new CreateAliasCommand({
+    switch (event.RequestType) {
+      case 'Create':
+      case 'Update': {
+        const listAliasesCommand = new ListAliasesCommand({
           FunctionName: functionName,
-          Name: aliasName,
-          Description: `Alias for commit ${aliasName}`,
-          FunctionVersion: functionVersion,
         });
-        await lambdaClient.send(createAliasCommand);
-      }
-    } else if (event.RequestType === 'Delete') {
-      const listAliasesCommand = new ListAliasesCommand({
-        FunctionName: functionName,
-      });
-      const aliases = await lambdaClient.send(listAliasesCommand);
+        const aliases = await lambdaClient.send(listAliasesCommand);
 
-      // eslint-disable-next-line functional/no-loop-statements -- the aliases are deleted one after another
-      for (const alias of aliases.Aliases || []) {
-        const deleteAliasCommand = new DeleteAliasCommand({
-          FunctionName: functionName,
-          Name: alias.Name,
-        });
-        await lambdaClient.send(deleteAliasCommand);
+        if (aliases.Aliases?.some((alias) => alias.Name === aliasName)) {
+          console.warn(
+            `Alias \${aliasName} already exists for function ${functionName}`,
+          );
+        } else {
+          const createAliasCommand = new CreateAliasCommand({
+            FunctionName: functionName,
+            Name: aliasName,
+            Description: `Alias for commit ${aliasName}`,
+            FunctionVersion: functionVersion,
+          });
+          await lambdaClient.send(createAliasCommand);
+        }
+        break;
       }
-    } else {
+      case 'Delete': {
+        const listAliasesCommand = new ListAliasesCommand({
+          FunctionName: functionName,
+        });
+        const aliases = await lambdaClient.send(listAliasesCommand);
+
+        // eslint-disable-next-line functional/no-loop-statements -- the aliases are deleted one after another
+        for (const alias of aliases.Aliases ?? []) {
+          const deleteAliasCommand = new DeleteAliasCommand({
+            FunctionName: functionName,
+            Name: alias.Name,
+          });
+          await lambdaClient.send(deleteAliasCommand);
+        }
+        break;
+      }
+      default:
       // Other request types leave the existing aliases untouched.
     }
     response.send(
