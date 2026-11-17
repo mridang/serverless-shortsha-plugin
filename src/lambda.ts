@@ -65,6 +65,7 @@ export const handler = async (
       });
       const aliases = await lambdaClient.send(listAliasesCommand);
 
+      // eslint-disable-next-line functional/no-loop-statements -- the aliases are deleted one after another
       for (const alias of aliases.Aliases || []) {
         const deleteAliasCommand = new DeleteAliasCommand({
           FunctionName: functionName,
